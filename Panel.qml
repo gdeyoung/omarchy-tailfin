@@ -24,6 +24,7 @@ Panel {
   property bool copyMenuOpen: false
   property string peerQuery: ""
   property bool offlineOpen: false
+  property string ackPending: ""   // warning row armed for acknowledge
   property int peerIndex: 0
   property int exitNodeIndex: 0
 
@@ -210,6 +211,7 @@ Panel {
   onOpenedChanged: if (opened) {
     cursorActive = false
     peerIndex = 0
+    ackPending = ""
     if (panelFlick) panelFlick.contentY = 0
     tailscale.refresh()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
@@ -236,7 +238,7 @@ Panel {
           color: root.barIconColor
           badgeColor: root.urgent
           crossed: !tailscale.active && !tailscale.needsLogin
-          warning: tailscale.needsLogin || (tailscale.running && tailscale.health.length > 0)
+          warning: tailscale.needsLogin || (tailscale.running && tailscale.visibleHealth.length > 0)
         }
       }
     }
@@ -400,7 +402,7 @@ Panel {
                   color: tailscale.active ? root.foreground : root.dim
                   badgeColor: root.urgent
                   crossed: !tailscale.active && !tailscale.needsLogin
-                  warning: tailscale.needsLogin || (tailscale.running && tailscale.health.length > 0)
+                  warning: tailscale.needsLogin || (tailscale.running && tailscale.visibleHealth.length > 0)
                 }
               }
               trailingControl: Component {
@@ -504,14 +506,15 @@ Panel {
                   width: parent.width
                   height: warnLabel.implicitHeight + Style.space(6)
                   radius: Style.space(3)
-                  color: warnMouse.containsMouse ? root.selectedFill : "transparent"
+                  color: warnMouse.containsMouse || root.ackPending === modelData
+                         ? root.selectedFill : "transparent"
                   Behavior on color { ColorAnimation { duration: 120 } }
 
                   Text {
                     id: warnLabel
                     anchors.left: parent.left
                     anchors.leftMargin: Style.space(6)
-                    anchors.right: ackGlyph.left
+                    anchors.right: root.ackPending === modelData ? ackButton.left : ackGlyph.left
                     anchors.rightMargin: Style.space(6)
                     anchors.verticalCenter: parent.verticalCenter
                     textFormat: Text.PlainText
@@ -522,10 +525,12 @@ Panel {
                     wrapMode: Text.WordWrap
                   }
 
+                  // Idle: subtle dismiss glyph hints the row is clickable.
                   Text {
                     id: ackGlyph
+                    visible: root.ackPending !== modelData
                     anchors.right: parent.right
-                    anchors.rightMargin: Style.space(6)
+                    anchors.rightMargin: Style.space(8)
                     anchors.verticalCenter: parent.verticalCenter
                     text: "󰅂"
                     color: warnMouse.containsMouse ? root.foreground : root.dim
@@ -539,7 +544,39 @@ Panel {
                     anchors.fill: parent
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
-                    onClicked: tailscale.ackHealth(modelData)
+                    // Click arms the inline Acknowledge button (second click disarms).
+                    onClicked: root.ackPending = root.ackPending === modelData ? "" : modelData
+                  }
+
+                  // Armed: the actual acknowledge action, explicit and labeled.
+                  Rectangle {
+                    id: ackButton
+                    visible: root.ackPending === modelData
+                    anchors.right: parent.right
+                    anchors.rightMargin: Style.space(6)
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: ackButtonText.implicitWidth + Style.space(10)
+                    height: ackButtonText.implicitHeight + Style.space(4)
+                    radius: height / 2
+                    color: root.urgent
+
+                    Text {
+                      id: ackButtonText
+                      anchors.centerIn: parent
+                      text: "Acknowledge"
+                      color: Color.background
+                      font.family: root.fontFamily
+                      font.pixelSize: Style.font.bodySmall
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: {
+                        tailscale.ackHealth(modelData)
+                        root.ackPending = ""
+                      }
+                    }
                   }
                 }
               }
@@ -555,8 +592,8 @@ Panel {
                   anchors.centerIn: parent
                   textFormat: Text.PlainText
                   text: tailscale.ackedCount === 1
-                        ? tailscale.ackedCount + " warning acknowledged - click to restore"
-                        : tailscale.ackedCount + " warnings acknowledged - click to restore"
+                        ? tailscale.ackedCount + " warning acknowledged — re-arm"
+                        : tailscale.ackedCount + " warnings acknowledged — re-arm"
                   color: root.dim
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.bodySmall
