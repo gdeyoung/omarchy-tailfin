@@ -89,6 +89,40 @@ test("parseStatusPlus marks the active exit node", () => {
   assert.equal(plus.peers.find((p) => p.ExitNode === true).HostName, "aitower")
 })
 
+test("parseStatusPlus surfaces an active Mullvad exit node", () => {
+  const raw = JSON.stringify({
+    BackendState: "Running",
+    Health: [],
+    Self: { HostName: "me", TailscaleIPs: ["100.1.1.1"] },
+    Peer: {
+      a: { ID: "a", HostName: "aitower", DNSName: "aitower.horse-frog.ts.net.", Online: true, ExitNodeOption: true, TailscaleIPs: ["100.86.130.1"] },
+      m: { ID: "m", HostName: "us-mkc-wg-003.mullvad.ts.net", DNSName: "us-mkc-wg-003.mullvad.ts.net.", Online: true, ExitNodeOption: true, ExitNode: true, TailscaleIPs: ["100.114.236.33"] },
+    },
+  })
+  const plus = Model.parseStatusPlus(raw)
+  // Mullvad peers stay out of the list…
+  assert.equal(plus.peers.some((p) => p.Mullvad === true), false)
+  // …but the active one is named.
+  assert.equal(plus.activeMullvadExit, "us-mkc-wg-003.mullvad.ts.net")
+  // And no tailnet peer is falsely flagged active.
+  assert.equal(plus.peers.some((p) => p.ExitNode === true), false)
+})
+
+test("mullvadRegionOptions prefers the selected node per city", () => {
+  const mk = (host, ip, selected) => ({
+    id: "mullvad:" + host, HostName: host, DNSName: host, DisplayName: "Kansas City, MO, USA",
+    TailscaleIPs: [ip], Online: true, OS: "mullvad", Tags: [], ExitNodeOption: true,
+    ExitNode: selected === true, Mullvad: true, Country: "USA", City: "Kansas City, MO",
+  })
+  const regions = Model.mullvadRegionOptions([
+    mk("us-mkc-wg-001.mullvad.ts.net", "100.100.134.83", false),
+    mk("us-mkc-wg-003.mullvad.ts.net", "100.114.236.33", true),
+  ])
+  assert.equal(regions.length, 1)
+  assert.equal(regions[0].ExitNode, true)
+  assert.equal(regions[0].HostName, "us-mkc-wg-003.mullvad.ts.net")
+})
+
 // ---- fork additions --------------------------------------------------------
 
 test("parsePrefs reads the real debug prefs output", () => {

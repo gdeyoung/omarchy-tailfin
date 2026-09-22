@@ -194,7 +194,13 @@ function mullvadRegionOptions(nodes) {
     if (city === "" || city === "Any") continue
 
     var key = country + "\n" + city
-    if (byRegion[key]) continue
+    // Keep the selected node when a city has several servers: the region's
+    // ON state must reflect the node actually in use, not whichever sorted
+    // first. (existing selected → keep; new unselected → keep; otherwise
+    // replace an unselected entry with the selected node.)
+    if (byRegion[key]) {
+      if (byRegion[key].ExitNode || node.ExitNode !== true) continue
+    }
 
     var option = {}
     for (var propertyName in node) option[propertyName] = node[propertyName]
@@ -343,12 +349,19 @@ function parseStatusPlus(raw) {
     var all = []
     var exitNodes = []
     var onlineCount = 0
+    var activeMullvadExit = ""
     var rawPeers = data.Peer || {}
 
     for (var id in rawPeers) {
       var peer = rawPeers[id] || {}
       var normalized = peerPlusFromStatus(id, peer)
-      if (normalized.Mullvad) continue
+      if (normalized.Mullvad) {
+        // Mullvad nodes are excluded from the peer list, but if one is the
+        // active exit node its name must still surface for the banner /
+        // "None" row state.
+        if (normalized.ExitNode) activeMullvadExit = String(normalized.HostName || "")
+        continue
+      }
       all.push(normalized)
       if (normalized.Online) {
         onlineCount += 1
@@ -379,6 +392,7 @@ function parseStatusPlus(raw) {
       peers: all,
       onlineCount: onlineCount,
       exitNodes: exitNodes,
+      activeMullvadExit: activeMullvadExit,
       health: healthList(data.Health)
     }
   } catch (e) {

@@ -25,6 +25,7 @@ Panel {
   property string peerQuery: ""
   property bool offlineOpen: false
   property string ackPending: ""   // warning row armed for acknowledge
+
   property int peerIndex: 0
   property int exitNodeIndex: 0
 
@@ -168,6 +169,15 @@ Panel {
     settings: root.settings
   }
 
+  // Fast poll while the panel is open (see onOpenedChanged above).
+  Timer {
+    id: openFastPoll
+    interval: 5000
+    repeat: true
+    running: false
+    onTriggered: if (!tailscale.refreshing) tailscale.refresh()
+  }
+
   IpcHandler {
     target: root.ipcTarget
     function open(): void { root.open() }
@@ -175,6 +185,25 @@ Panel {
     function toggle(): void { root.toggle() }
     function refresh(): string { tailscale.refresh(); return "ok" }
     function tab(name: string): string { root.setTab(name); return "ok" }
+    // Set the exit node by peer hostname (tailnet) or Mullvad hostname/IP;
+    // empty string clears it (direct). Matches what the row switches do.
+    function exitnode(name: string): string {
+      var target = String(name || "")
+      if (target === "") { tailscale.setExitNodeHost(""); return "ok" }
+      var all = tailscale.tailnetExitNodes.concat(tailscale.mullvadRegions)
+      for (var i = 0; i < all.length; i++) {
+        var node = all[i]
+        var host = String(node.HostName || "")
+        var ips = node.TailscaleIPs || []
+        if (host === target || host.indexOf(target) === 0 || ips.indexOf(target) !== -1) {
+          tailscale.setExitNode(node)
+          return "ok"
+        }
+      }
+      // Fall back to bare hostname via tailscale CLI semantics.
+      tailscale.setExitNodeHost(target)
+      return "ok"
+    }
     function ack(warning: string): string { tailscale.ackHealth(warning); return "ok" }
     function unack(): string { tailscale.unackAll(); return "ok" }
     function ssh(host: string): string { var ps = tailscale.peers; for (var i = 0; i < ps.length; i++) { if (ps[i].HostName === host) { tailscale.sshPeer(ps[i]); return "ok" } } return "notfound" }
@@ -220,6 +249,9 @@ Panel {
     if (panelFlick) panelFlick.contentY = 0
     tailscale.refresh()
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    openFastPoll.running = true
+  } else {
+    openFastPoll.running = false
   }
 
   // Slow phrase rotation for the hero line (stock has an animation; a timer
@@ -330,7 +362,9 @@ Panel {
               fontFamily: root.fontFamily
             }
 
-            // "None" row — direct connection, no exit node
+            ActiveExitBanner { }
+
+            // "None" row — direct connection, no exit node            // "None" row — direct connection, no exit node
             ExitNodeRow {
               width: parent.width
               glyph: "󰒃"
@@ -747,6 +781,8 @@ Panel {
             width: parent.width
             spacing: Style.space(10)
 
+            ActiveExitBanner { }
+
             PanelSectionHeader {
               text: "MULLVAD REGIONS"
               foreground: root.foreground
@@ -1048,6 +1084,53 @@ Panel {
     }
   }
 
+  // Active exit-node banner: current node name + master off-switch, shown on
+  // the exitNodes and mullvad tabs so the active node is visible even when its
+  // row is filtered out or scrolled away. Internal ids are per-instance.
+  component ActiveExitBanner: Rectangle {
+    visible: tailscale.currentExitNodeName() !== ""
+    width: parent.width
+    height: bannerRow.implicitHeight + Style.space(8)
+    radius: Style.space(3)
+    color: root.selectedFill
+
+    Row {
+      id: bannerRow
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.leftMargin: Style.space(8)
+      anchors.rightMargin: Style.space(8)
+      spacing: Style.space(8)
+
+      Text {
+        text: "\u25cf"
+        color: Color.accent
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        anchors.verticalCenter: parent.verticalCenter
+      }
+
+      Text {
+        textFormat: Text.PlainText
+        text: tailscale.currentExitNodeName()
+        color: root.foreground
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.bodySmall
+        font.bold: true
+        elide: Text.ElideRight
+        width: parent.width - Style.space(70)
+        anchors.verticalCenter: parent.verticalCenter
+      }
+
+      ToggleSwitch {
+        checked: true
+        interactive: !tailscale.busy
+        onToggled: tailscale.setExitNodeHost("")
+      }
+    }
+  }
+
   component ExitNodeRow: CursorSurface {
     id: exitRow
     signal chosen()
@@ -1096,7 +1179,7 @@ Panel {
       }
 
       Column {
-        width: parent.width - Style.space(30)
+        width: parent.width - Style.space(80)
         spacing: Style.space(1)
         anchors.verticalCenter: parent.verticalCenter
 
@@ -1123,9 +1206,22 @@ Panel {
       }
     }
 
+    // State switch: on = this exit node active, off = direct connection.
+    ToggleSwitch {
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+      checked: exitRow.activeNode
+      busy: exitRow.settingNode
+      interactive: !exitRow.settingNode
+      onToggled: exitRow.chosen()
+    }
+
+    // Clicking the label half of the row also drives the switch (same action).
     MouseArea {
       id: exitNodeMouse
-      anchors.fill: parent
+      anchors.left: parent.left
+      width: parent.width * 0.55
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: exitRow.chosen()
@@ -1407,7 +1503,7 @@ Panel {
       }
 
       Column {
-        width: parent.width - Style.space(30)
+        width: parent.width - Style.space(80)
         anchors.verticalCenter: parent.verticalCenter
         spacing: Style.space(1)
 
@@ -1434,9 +1530,22 @@ Panel {
       }
     }
 
+    // State switch: on = this Mullvad region active, off = direct.
+    ToggleSwitch {
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+      checked: regionRow.activeExitNode
+      busy: regionRow.settingExitNode
+      interactive: !regionRow.settingExitNode
+      onToggled: tailscale.setExitNode(regionRow.peer)
+    }
+
+    // Label half click drives the same action as the switch.
     MouseArea {
       id: regionMouse
-      anchors.fill: parent
+      anchors.left: parent.left
+      width: parent.width * 0.55
       hoverEnabled: true
       cursorShape: Qt.PointingHandCursor
       onClicked: tailscale.setExitNode(regionRow.peer)

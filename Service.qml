@@ -31,6 +31,8 @@ Item {
   property bool fileSharing: false
   property string authUrl: ""
   property var peers: []
+  // fork: HostName of an active Mullvad exit node (excluded from peers).
+  property string activeMullvadExit: ""
   property var exitNodes: []
   property var tailnetExitNodes: []
   property var mullvadExitNodes: []
@@ -290,6 +292,7 @@ Item {
     fileSharing = false
     authUrl = ""
     peers = []
+    activeMullvadExit = ""
     exitNodes = []
     tailnetExitNodes = []
     mullvadExitNodes = []
@@ -333,6 +336,7 @@ Item {
     selfUserId = parsed.selfUserId
     fileSharing = parsed.fileSharing
     peers = parsed.running ? parsed.peers : []
+    activeMullvadExit = parsed.running ? String(parsed.activeMullvadExit || "") : ""
     tailnetExitNodes = parsed.running ? parsed.exitNodes : []
     exitNodes = parsed.running ? tailnetExitNodes.concat(mullvadRegions) : []
 
@@ -453,7 +457,9 @@ Item {
     for (var i = 0; i < peers.length; i++) {
       if (peers[i].ExitNode === true) { activePeer = peers[i]; break }
     }
-    return activePeer ? String(activePeer.HostName || "") : ""
+    if (activePeer) return String(activePeer.HostName || "")
+    // Mullvad exit nodes are not in peers — use the recorded active name.
+    return activeMullvadExit
   }
 
   // fork: LAN-access toggle only makes sense while an exit node is in use.
