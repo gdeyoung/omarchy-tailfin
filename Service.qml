@@ -54,6 +54,8 @@ Item {
   property bool allowLanAccess: false    // exit-node-allow-lan-access
   property string suggestedExitNode: ""
   property bool suggesting: false
+  property bool receiveActive: false    // Taildrop receiver service running
+  property bool receiveBusy: false
 
   // fork: acknowledged health warnings (persisted, per-warning) --------------
   property var ackedHealth: []
@@ -64,6 +66,26 @@ Item {
   // end fork -----------------------------------------------------------------
 
   readonly property int refreshIntervalSec: intSetting("refreshIntervalSec", 30, 5, 3600)
+  Process {
+    id: receiveStateProcess
+    running: false
+    command: []
+    stdout: StdioCollector { id: receiveStateOut; waitForEnd: true; onStreamFinished: root._receiveStateOut = text }
+    onExited: function(exitCode) {
+      root.receiveActive = String(root._receiveStateOut).trim() === "active"
+    }
+  }
+
+  Process {
+    id: toggleReceiveProcess
+    running: false
+    command: []
+    onExited: function(exitCode) {
+      root.receiveBusy = false
+      root.refreshReceiveState()
+    }
+  }
+
   readonly property bool busy: whichProcess.running || statusProcess.running || mullvadExitNodesProcess.running || accountsProcess.running || actionProcess.running || loginProcess.running || switchProcess.running || operatorProcess.running || exitNodeProcess.running || prefsProcess.running || suggestProcess.running || prefSetProcess.running
   readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME")
 
@@ -166,11 +188,31 @@ Item {
     return Model.isTaildropTarget(peer, selfUserId)
   }
 
+  function sshPeer(peer) {
+    if (!peer || !peer.Online || peer.Mullvad === true) return
+    var host = String(peer.HostName || "")
+    var dns = String(peer.DNSName || host)
+    Quickshell.execDetached(["foot", "-T", "ssh " + host, "-e", "sh", "-lc", "exec tailscale ssh '" + host + "' 2>/dev/null || exec ssh '" + dns + "'"])
+  }
+
+  // Taildrop receive toggle (stock omarchy-tailscale-receive.service)
+  function refreshReceiveState() {
+    if (!receiveStateProcess.running) {
+      receiveStateProcess.command = ["systemctl", "--user", "is-active", "omarchy-tailscale-receive.service"]
+      receiveStateProcess.running = true
+    }
+  }
+
+  function toggleReceive(on) {
+    toggleReceiveProcess.command = ["systemctl", "--user", on ? "enable" : "disable", "--now", "omarchy-tailscale-receive.service"]
+    toggleReceiveProcess.running = true
+  }
+
   function sendFile(peer) {
     if (!canSendFiles(peer)) return
     var target = peerAddress(peer)
     if (target === "") return
-    Quickshell.execDetached(["omarchy-tailfin-send", target])
+    Quickshell.execDetached(["omarchy-tailscale-send", target])
   }
 
   function refresh(forceAccounts) {
@@ -187,6 +229,7 @@ Item {
 
   function refreshStatusAndAccounts(forceAccounts) {
     if (!installed) return
+    refreshReceiveState()
     var launched = false
     if (!statusProcess.running) {
       _statusOutput = ""
@@ -847,6 +890,7 @@ Item {
   }
 
   property string _ackWritePending: ""
+  property string _receiveStateOut: ""
   readonly property string ackStateDir: Quickshell.env("HOME") + "/.local/state/gdeyoung.tailfin"
 
   // mkdir -p at startup: FileView.setText cannot create parent dirs.

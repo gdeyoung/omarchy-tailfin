@@ -31,6 +31,7 @@ Panel {
   readonly property color foreground: bar ? bar.foreground : Color.foreground
   readonly property color urgent: bar ? bar.urgent : Color.urgent
   readonly property color dim: Qt.darker(foreground, 1.55)
+  readonly property color selectedFill: Qt.alpha(foreground, 0.12)
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
   readonly property bool hasMullvad: tailscale.mullvadRegions.length > 0
   readonly property var filteredPeers: Model.filterPeers(tailscale.peers, peerQuery)
@@ -176,6 +177,8 @@ Panel {
     function tab(name: string): string { root.setTab(name); return "ok" }
     function ack(warning: string): string { tailscale.ackHealth(warning); return "ok" }
     function unack(): string { tailscale.unackAll(); return "ok" }
+    function ssh(host: string): string { var ps = tailscale.peers; for (var i = 0; i < ps.length; i++) { if (ps[i].HostName === host) { tailscale.sshPeer(ps[i]); return "ok" } } return "notfound" }
+    function receive(state: string): string { tailscale.receiveBusy = true; tailscale.toggleReceive(state === "on"); return "ok" }
     function status(): string {
       return JSON.stringify({
         tab: root.tab,
@@ -196,6 +199,8 @@ Panel {
         exitNodes: tailscale.exitNodes.length,
         mullvad: tailscale.mullvadRegions.length,
         accounts: tailscale.accounts.length,
+        receiveActive: tailscale.receiveActive,
+        fileSharing: tailscale.fileSharing,
         operatorDenied: tailscale.accountsAccessDenied,
         peerQuery: root.peerQuery,
         filteredOnline: root.filteredOnline.length,
@@ -604,6 +609,78 @@ Panel {
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
                   onClicked: tailscale.unackAll()
+                }
+              }
+            }
+
+            // Account switcher (only when more than one profile is loaded)
+            Column {
+              visible: tailscale.installed && tailscale.running && tailscale.accounts.length > 1
+              width: parent.width
+              spacing: Style.space(6)
+
+              PanelSectionHeader {
+                text: "ACCOUNT"
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+              }
+
+              Repeater {
+                model: tailscale.accounts
+                Rectangle {
+                  required property var modelData
+                  width: parent.width
+                  height: acctLabel.implicitHeight + Style.space(8)
+                  radius: Style.space(3)
+                  color: modelData.selected ? root.selectedFill : (acctMouse.containsMouse ? root.selectedFill : "transparent")
+
+                  Text {
+                    id: acctLabel
+                    anchors.left: parent.left
+                    anchors.leftMargin: Style.space(6)
+                    anchors.verticalCenter: parent.verticalCenter
+                    textFormat: Text.PlainText
+                    text: String(modelData.account || modelData.nickname || modelData.id)
+                    color: modelData.selected ? root.foreground : root.dim
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.bodySmall
+                    elide: Text.ElideRight
+                    width: parent.width - Style.space(12)
+                  }
+
+                  MouseArea {
+                    id: acctMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: if (!modelData.selected) tailscale.switchAccount(modelData.id)
+                  }
+                }
+              }
+            }
+
+            // Taildrop incoming receiver
+            Column {
+              visible: tailscale.installed && tailscale.running && tailscale.fileSharing
+              width: parent.width
+              spacing: Style.space(6)
+
+              PanelSectionHeader {
+                text: "TAILDROP"
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+              }
+
+              Toggle {
+                width: parent.width
+                label: "Save incoming files automatically"
+                description: "omarchy-tailscale-receive.service → ~/Downloads, notify on arrival"
+                checked: tailscale.receiveActive
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+                onClicked: {
+                  tailscale.receiveBusy = true
+                  tailscale.toggleReceive(!tailscale.receiveActive)
                 }
               }
             }
@@ -1071,8 +1148,10 @@ Panel {
     readonly property string peerIpv6: peer && peer.TailscaleIPv6 && peer.TailscaleIPv6.length > 0 ? String(peer.TailscaleIPv6[0]) : ""
     readonly property bool online: peer ? peer.Online === true : false
     readonly property string lastSeenText: peer ? Model.fmtLastSeen(peer.LastSeen) : "never"
+    readonly property string trafficText: peer ? "\u2193" + Model.fmtBytes(peer.RxBytes || 0) + " \u2191" + Model.fmtBytes(peer.TxBytes || 0) : ""
     readonly property string subLine: {
       var parts = []
+      if (online && trafficText !== "") parts.push(trafficText)
       if (peerIp !== "") parts.push(peerIp)
       if (peerDns !== "") parts.push(peerDns)
       if (!online && lastSeenText !== "") parts.push("last seen " + lastSeenText)
@@ -1110,7 +1189,7 @@ Panel {
 
       Column {
         id: peerContent
-        width: parent.width - Style.space(60)
+        width: parent.width - Style.space(90)
         spacing: Style.space(1)
 
         Text {
@@ -1144,6 +1223,17 @@ Panel {
         fontFamily: root.fontFamily
         anchors.verticalCenter: parent.verticalCenter
         onClicked: root.sendPeerFile(peerRow.peer)
+      }
+
+      PanelActionButton {
+        id: sshButton
+        visible: peerRow.online && peerRow.peer && peerRow.peer.Mullvad !== true
+        iconText: "󰆋"
+        tooltipText: "SSH"
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        anchors.verticalCenter: parent.verticalCenter
+        onClicked: tailscale.sshPeer(peerRow.peer)
       }
 
       PanelActionButton {
