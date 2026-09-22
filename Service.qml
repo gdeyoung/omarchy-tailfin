@@ -190,11 +190,25 @@ Item {
     return Model.isTaildropTarget(peer, selfUserId)
   }
 
+  // Strict hostname validation: Tailscale HostName/DNSName are DNS labels
+  // (letters, digits, hyphens, dots). Anything else — quotes, shell syntax —
+  // is rejected before it can reach a shell.
+  function validTailnetHost(s) {
+    if (!s || s.length > 253) return false
+    return /^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*\.?$/.test(s)
+  }
+
+  // POSIX single-quoting, applied independently to each interpolated value.
+  function shellQuote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'"
+  }
+
   function sshPeer(peer) {
     if (!peer || !peer.Online || peer.Mullvad === true) return
     var host = String(peer.HostName || "")
     var dns = String(peer.DNSName || host)
-    Quickshell.execDetached(["foot", "-T", "ssh " + host, "-e", "sh", "-lc", "exec tailscale ssh '" + host + "' 2>/dev/null || exec ssh '" + dns + "'"])
+    if (!validTailnetHost(host) || !validTailnetHost(dns)) return
+    Quickshell.execDetached(["foot", "-T", "ssh " + host, "-e", "sh", "-lc", "exec tailscale ssh " + shellQuote(host) + " 2>/dev/null || exec ssh " + shellQuote(dns)])
   }
 
   // Taildrop receive toggle (stock omarchy-tailscale-receive.service)
