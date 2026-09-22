@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "id": "gdeyoung.tailscale",
+  "name": "Tailscale+",
+  "version": "0.1.0",
+  "author": "Greg DeYoung",
+  "license": "MIT",
+  "description": "Tailscale panel with tabbed layout: connection health, preference toggles, exit nodes with suggestions, Mullvad regions, and a searchable machine list. Forked from Omarchy's first-party omarchy.tailscale (MIT).",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Tailscale+",
+    "description": "Tabbed Tailscale panel: connection state, health warnings, preference toggles, exit nodes (with suggestions), Mullvad regions, searchable machines, Taildrop, and account switching.",
+    "category": "Network",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "refreshIntervalSec": 30,
+      "showOffline": false
+    },
+    "schema": [
+      {
+        "key": "refreshIntervalSec",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 5,
+        "max": 3600,
+        "step": 5,
+        "defaultValue": 30
+      },
+      {
+        "key": "showOffline",
+        "type": "boolean",
+        "label": "Show offline machines by default",
+        "defaultValue": false,
+        "description": "The Machines tab keeps offline machines in a collapsed section; this opens it by default."
+      }
+    ]
+  },
+  "repository": "https://github.com/gdeyoung/omarchy-tailscale",
+  "homepage": "https://github.com/gdeyoung/omarchy-tailscale"
+}
