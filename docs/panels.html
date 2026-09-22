@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tailfin — synthetic panel mockups</title>
+<style>
+  /* ===== Tailfin panel mockup — matches Omarchy dark shell theme =====
+     Panel bg #10131a, radius 14px, 1px border rgba(255,255,255,.09),
+     font: mono throughout, accent #7aa2f7 (soft blue), muted #8b93a7. */
+  :root {
+    --bg: #0b0d12;
+    --panel: #10131a;
+    --panel2: #161a24;
+    --border: rgba(255,255,255,.09);
+    --ink: #e6e9f0;
+    --muted: #8b93a7;
+    --dim: #5c6478;
+    --accent: #7aa2f7;
+    --accent-dim: rgba(122,162,247,.14);
+    --warn: #e0af68;
+    --green: #9ece6a;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--bg);
+    font-family: 'JetBrains Mono', 'JetBrainsMono Nerd Font', ui-monospace, monospace;
+    color: var(--ink);
+    padding: 28px;
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .panel {
+    width: 400px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  }
+  .tabs { display: flex; padding: 10px 12px 0; gap: 2px; border-bottom: 1px solid var(--border); }
+  .tab {
+    font-size: 12px; color: var(--muted); padding: 8px 10px 9px;
+    border-radius: 8px 8px 0 0; letter-spacing: .02em;
+  }
+  .tab.active { color: var(--ink); background: var(--panel2); }
+  .body { padding: 14px 14px 16px; }
+  .sec {
+    font-size: 10.5px; color: var(--dim); letter-spacing: .14em;
+    margin: 14px 2px 8px;
+  }
+  .sec:first-child { margin-top: 2px; }
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 10px; border-radius: 10px;
+  }
+  .row.current { background: var(--accent-dim); }
+  .row .glyph { color: var(--dim); font-size: 14px; width: 18px; text-align: center; }
+  .row .txt { flex: 1; min-width: 0; }
+  .row .name { font-size: 12.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .name b { color: var(--ink); font-weight: 600; }
+  .row .sub { font-size: 10.5px; color: var(--muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .sub.mono { color: var(--dim); }
+  .switch {
+    width: 34px; height: 19px; border-radius: 10px; position: relative; flex: none;
+    background: rgba(255,255,255,.13);
+  }
+  .switch::after {
+    content: ""; position: absolute; top: 2.5px; left: 2.5px;
+    width: 14px; height: 14px; border-radius: 50%; background: #cdd3e0;
+    transition: left .15s, background .15s;
+  }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { left: 17.5px; background: #fff; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex: none; }
+  .banner {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--accent-dim); border-radius: 10px; padding: 9px 10px; margin-bottom: 8px;
+  }
+  .banner .name { font-size: 12.5px; font-weight: 600; }
+  .banner .sub { font-size: 10.5px; color: var(--muted); margin-top: 1px; }
+  .hero { padding: 4px 2px 2px; }
+  .hero .title { font-size: 19px; font-weight: 700; letter-spacing: .01em; }
+  .hero .meta { font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .hero .meta .pulse { color: var(--green); }
+  .bigswitch { width: 44px; height: 24px; border-radius: 12px; }
+  .bigswitch::after { width: 18px; height: 18px; top: 3px; }
+  .bigswitch.on::after { left: 23px; }
+  .health {
+    display: flex; align-items: center; gap: 9px;
+    background: rgba(224,175,104,.09); border: 1px solid rgba(224,175,104,.22);
+    border-radius: 10px; padding: 9px 10px; margin-top: 8px;
+  }
+  .health .msg { flex: 1; font-size: 11px; color: var(--warn); line-height: 1.45; }
+  .health .x { color: var(--dim); font-size: 12px; }
+  .search {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 9px; padding: 8px 10px; margin: 8px 2px 10px;
+  }
+  .search .icon { color: var(--dim); font-size: 12px; }
+  .search .ph { font-size: 11.5px; color: var(--dim); }
+  .btns { display: flex; gap: 6px; flex: none; }
+  .abtn {
+    width: 26px; height: 26px; border-radius: 8px; flex: none;
+    background: var(--panel2); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 13px;
+  }
+  .traffic { font-size: 10px; color: var(--dim); white-space: nowrap; }
+  .footnote { font-size: 10px; color: var(--dim); text-align: center; margin-top: 10px; }
+  .caption { width: 100%; text-align: left; color: var(--dim); font-size: 11px; padding: 4px 2px; }
+  .actions { position: fixed; right: 22px; bottom: 20px; display: flex; gap: 8px; }
+  .actions button {
+    font: 600 12px 'JetBrains Mono', monospace; color: var(--ink);
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 12px; cursor: pointer;
+  }
+  .actions button:hover { border-color: var(--accent); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- ============ TAB 1: CONNECTION ============ -->
+<div>
+<div class="caption">1 · Connection</div>
+<div class="panel" id="panel-connection">
+  <div class="tabs">
+    <div class="tab active">Connection</div><div class="tab">Exit Nodes</div><div class="tab">Mullvad</div><div class="tab">Machines</div>
+  </div>
+  <div class="body">
+    <div class="hero" style="display:flex; align-items:center; gap:14px;">
+      <div style="flex:1;">
+        <div class="title">Connected</div>
+        <div class="meta"><span class="pulse">●</span> Encrypting connections</div>
+      </div>
+      <div class="switch on bigswitch"></div>
+    </div>
+
+    <div class="sec">THIS DEVICE</div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt">
+        <div class="name">orbit</div>
+        <div class="sub mono">orbit.corvid-ts.net</div>
+      </div>
+      <span class="glyph" style="color:#6b7386;"></span>
+    </div>
+
+    <div class="sec">HEALTH</div>
+    <div class="health">
+      <span style="color:var(--warn); font-size:13px;"></span>
+      <div class="msg">Some routes are advertised but not accepted — accept-routes is off.</div>
+      <span class="x">Acknowledge ›</span>
+    </div>
+
+    <div class="sec">PREFERENCES</div>
+    <div class="row">
+      <div class="txt"><div class="name">Route all traffic</div><div class="sub">Use an exit node for everything</div></div>
+      <div class="switch"></div>
+    </div>
+    <div class="row">
+      <div class="txt"><div class="name">Tailscale DNS</div><div class="sub">MagicDNS names from the tailnet</div></div>
+      <div class="switch on"></div>
+    </div>
+    <div class="row">
+      <div class="txt"><div class="name">Shields up</div><div class="sub">Block incoming connections</div></div>
+      <div class="switch"></div>
+    </div>
+    <div class="row">
+      <div class="txt"><div class="name">Allow LAN access</div><div class="sub">Reach local devices while on an exit node</div></div>
+      <div class="switch"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ TAB 2: EXIT NODES ============ -->
+<div>
+<div class="caption">2 · Exit Nodes</div>
+<div class="panel" id="panel-exitnodes">
+  <div class="tabs">
+    <div class="tab">Connection</div><div class="tab active">Exit Nodes</div><div class="tab">Mullvad</div><div class="tab">Machines</div>
+  </div>
+  <div class="body">
+    <div class="banner">
+      <span class="dot"></span>
+      <div class="txt">
+        <div class="name">kestrel</div>
+        <div class="sub">exit node active</div>
+      </div>
+      <div class="switch on"></div>
+    </div>
+
+    <div class="sec">ROUTE ALL TRAFFIC THROUGH</div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt"><div class="name">None (direct)</div><div class="sub">Use your own internet connection</div></div>
+      <div class="switch"></div>
+    </div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt"><div class="name">Suggested: kestrel</div><div class="sub">Lowest latency per Tailscale</div></div>
+      <div class="switch on"></div>
+    </div>
+
+    <div class="sec">TAILNET EXIT NODES</div>
+    <div class="row current">
+      <span class="glyph"></span>
+      <div class="txt"><div class="name"><b>kestrel</b></div><div class="sub mono">100.84.71.20</div></div>
+      <div class="switch on"></div>
+    </div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt"><div class="name">heron</div><div class="sub mono">100.96.15.4</div></div>
+      <div class="switch"></div>
+    </div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt"><div class="name">puffin</div><div class="sub mono">100.72.8.9</div></div>
+      <div class="switch"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ TAB 3: MULLVAD ============ -->
+<div>
+<div class="caption">3 · Mullvad</div>
+<div class="panel" id="panel-mullvad">
+  <div class="tabs">
+    <div class="tab">Connection</div><div class="tab">Exit Nodes</div><div class="tab active">Mullvad</div><div class="tab">Machines</div>
+  </div>
+  <div class="body">
+    <div class="search"><span class="icon"></span><span class="ph">Search regions…</span></div>
+
+    <div class="banner">
+      <span class="dot"></span>
+      <div class="txt">
+        <div class="name">us-mkc-wg-014</div>
+        <div class="sub">Kansas City, Missouri · active</div>
+      </div>
+      <div class="switch on"></div>
+    </div>
+
+    <div class="sec">MULLVAD REGIONS</div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt"><div class="name">Tirana</div><div class="sub">Albania</div></div>
+      <div class="switch"></div>
+    </div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt"><div class="name">Vienna</div><div class="sub">Austria</div></div>
+      <div class="switch"></div>
+    </div>
+    <div class="row current">
+      <span class="glyph"></span>
+      <div class="txt"><div class="name"><b>Kansas City, MO</b></div><div class="sub">United States</div></div>
+      <div class="switch on"></div>
+    </div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt"><div class="name">London</div><div class="sub">United Kingdom</div></div>
+      <div class="switch"></div>
+    </div>
+    <div class="footnote">91 regions · requires Mullvad exit nodes on your tailnet</div>
+  </div>
+</div>
+</div>
+
+<!-- ============ TAB 4: MACHINES ============ -->
+<div>
+<div class="caption">4 · Machines</div>
+<div class="panel" id="panel-machines">
+  <div class="tabs">
+    <div class="tab">Connection</div><div class="tab">Exit Nodes</div><div class="tab">Mullvad</div><div class="tab active">Machines</div>
+  </div>
+  <div class="body">
+    <div class="search"><span class="icon"></span><span class="ph">Search machines…</span></div>
+
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt">
+        <div class="name">kestrel</div>
+        <div class="sub mono">exit node · ↓ 1.2 GB ↑ 340 MB</div>
+      </div>
+      <div class="btns">
+        <div class="abtn" title="Send files"></div>
+        <div class="abtn" title="SSH"></div>
+        <div class="abtn" title="Copy address"></div>
+      </div>
+    </div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt">
+        <div class="name">magpie</div>
+        <div class="sub mono">linux · ↓ 88 MB ↑ 12 MB</div>
+      </div>
+      <div class="btns">
+        <div class="abtn"></div>
+        <div class="abtn"></div>
+        <div class="abtn"></div>
+      </div>
+    </div>
+    <div class="row">
+      <span class="glyph"></span>
+      <div class="txt">
+        <div class="name">heron</div>
+        <div class="sub mono">windows · ↓ 2.1 GB ↑ 96 MB</div>
+      </div>
+      <div class="btns">
+        <div class="abtn"></div>
+        <div class="abtn"></div>
+        <div class="abtn"></div>
+      </div>
+    </div>
+    <div class="row" style="opacity:.55;">
+      <span class="glyph"></span>
+      <div class="txt">
+        <div class="name">wren</div>
+        <div class="sub mono">macOS · offline</div>
+      </div>
+      <div class="btns">
+        <div class="abtn"></div>
+        <div class="abtn"></div>
+      </div>
+    </div>
+    <div class="footnote">24 online · 9 offline — hidden  ›</div>
+  </div>
+</div>
+</div>
+
+<script>
+  // Export mode: ?only=<panel-id> hides everything else for clean screenshots.
+  const params = new URLSearchParams(location.search);
+  const only = params.get('only');
+  if (only) {
+    document.body.style.padding = '0';
+    document.querySelectorAll('.caption, .actions').forEach(e => e.remove());
+    document.querySelectorAll('body > div').forEach(w => {
+      if (!w.querySelector('#' + only)) w.remove();
+    });
+    document.body.style.display = 'block';
+  }
+</script>
+<script>
+  // Icon glyphs are injected after load so this file stays valid UTF-8 and
+  // survives copy/paste; they are Nerd Font codepoints matching the plugin.
+  const ICONS = {
+    linux: "\uF17C", windows: "\uE70F", macos: "\uF179",
+    globe: "\uF0AC", bolt: "\uF0E7", shield: "\uF132",
+    search: "\uF002", copy: "\uF0C5", terminal: "\uF120",
+    paperplane: "\uF1D8", check: "\uF00C", warn: "\uF071",
+    chevron: "\uF054", node: "\uEB01", x: "\uF00D",
+  };
+  document.querySelectorAll('.row .glyph:empty, .search .icon:empty, .abtn:empty').forEach(el => {
+    const row = el.closest('.row');
+    const sub = row ? row.querySelector('.sub') : null;
+    let ch = ICONS.globe;
+    if (sub) {
+      if (/exit node/i.test(sub.textContent)) ch = ICONS.globe;
+      else if (/linux/i.test(sub.textContent)) ch = ICONS.linux;
+      else if (/windows/i.test(sub.textContent)) ch = ICONS.windows;
+      else if (/macOS/i.test(sub.textContent)) ch = ICONS.macos;
+      else if (/Albania|Austria|United|Missouri/i.test(sub.textContent)) ch = ICONS.globe;
+    }
+    if (el.classList.contains('abtn')) {
+      const idx = [...el.parentElement.children].indexOf(el);
+      const last = el.parentElement.children.length - 1;
+      ch = idx === 0 ? ICONS.paperplane : (idx === last ? ICONS.copy : ICONS.terminal);
+    }
+    if (el.classList.contains('search') || el.closest('.search')) ch = ICONS.search;
+    el.textContent = ch;
+  });
+  // Suggested row bolt + health icon + ack chevron
+  document.querySelectorAll('.row').forEach(r => {
+    const n = r.querySelector('.name');
+    if (n && n.textContent.startsWith('Suggested')) {
+      const g = r.querySelector('.glyph'); if (g) g.textContent = ICONS.bolt;
+    }
+  });
+  const hw = document.querySelector('.health span'); if (hw) hw.textContent = ICONS.warn;
+  const ack = document.querySelector('.health .x'); if (ack) ack.textContent = "Acknowledge \u203A";
+  document.querySelectorAll('.footnote').forEach(f => {
+    if (f.textContent.includes('hidden')) f.innerHTML = f.textContent.replace('›', '<span style="color:var(--muted)">\uF054</span>');
+  });
+</script>
+</body>
+</html>
