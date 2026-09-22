@@ -1,4 +1,4 @@
-# Tailscale+ for Omarchy
+# Tailfin for Omarchy
 
 A fork of Omarchy's first-party `omarchy.tailscale` bar widget, rebuilt as a
 **tabbed panel** — because a tailnet with dozens of peers and Mullvad exit
@@ -10,7 +10,7 @@ upstream so fixes flow both ways.
 
 ## What it adds over the stock widget
 
-| Area | Stock `omarchy.tailscale` | Tailscale+ |
+| Area | Stock `omarchy.tailscale` | Tailfin |
 |---|---|---|
 | Layout | One long scrolling column | **4 tabs** — only Machines scrolls |
 | Health | Not shown | **HEALTH section** — live warnings from `status --json` (bar icon gets a warning badge too) |
@@ -50,13 +50,13 @@ machine. After that every control is one click. (This is the same
 one-time-unlock Trayscale uses.)
 
 Requirements: `tailscale` CLI on PATH, `wl-copy` for copy actions. Taildrop
-send uses Omarchy's `omarchy-tailscale-send`.
+send uses Omarchy's `omarchy-tailfin-send`.
 
 ## Install
 
 ```sh
-omarchy plugin add https://github.com/gdeyoung/omarchy-tailscale
-omarchy bar put gdeyoung.tailscale --section right
+omarchy plugin add https://github.com/gdeyoung/omarchy-tailfin
+omarchy bar put gdeyoung.tailfin --section right
 ```
 
 ## Development
@@ -67,6 +67,6 @@ qmllint -I /usr/share/omarchy/shell Panel.qml Service.qml
 omarchy plugin validate .
 ```
 
-Deploy to `~/.config/omarchy/plugins/gdeyoung.tailscale/` then
+Deploy to `~/.config/omarchy/plugins/gdeyoung.tailfin/` then
 `omarchy restart shell`. IPC verbs for testing:
-`qs -p /usr/share/omarchy/shell ipc call gdeyoung.tailscale status|open|close|toggle|tab`.
+`qs -p /usr/share/omarchy/shell ipc call gdeyoung.tailfin status|open|close|toggle|tab`.

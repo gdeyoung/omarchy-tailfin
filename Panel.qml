@@ -6,7 +6,7 @@ import qs.Commons
 import qs.Ui
 import "Model.js" as Model
 
-// gdeyoung.tailscale panel — forked from Omarchy's first-party
+// gdeyoung.tailfin panel — forked from Omarchy's first-party
 // omarchy.tailscale Panel.qml (MIT). Layout rebuilt: the stock single-scroll
 // column becomes four tabs; only Machines scrolls.
 //   connection : hero + toggle, self info, health warnings, preferences
@@ -15,8 +15,8 @@ import "Model.js" as Model
 //   machines   : searchable peer list, offline collapsed
 Panel {
   id: root
-  moduleName: "gdeyoung.tailscale"
-  ipcTarget: "gdeyoung.tailscale"
+  moduleName: "gdeyoung.tailfin"
+  ipcTarget: "gdeyoung.tailfin"
   manageIpc: false
 
   property string tab: "connection"
@@ -173,6 +173,8 @@ Panel {
     function toggle(): void { root.toggle() }
     function refresh(): string { tailscale.refresh(); return "ok" }
     function tab(name: string): string { root.setTab(name); return "ok" }
+    function ack(warning: string): string { tailscale.ackHealth(warning); return "ok" }
+    function unack(): string { tailscale.unackAll(); return "ok" }
     function status(): string {
       return JSON.stringify({
         tab: root.tab,
@@ -181,6 +183,7 @@ Panel {
         running: tailscale.running,
         backendState: tailscale.backendState,
         health: tailscale.health.length,
+        acked: tailscale.ackedCount,
         onlineCount: tailscale.onlineCount,
         peers: tailscale.peers.length,
         prefsOk: tailscale.prefsOk,
@@ -484,7 +487,7 @@ Panel {
 
             // Health warnings
             Column {
-              visible: tailscale.installed && tailscale.running && tailscale.health.length > 0
+              visible: tailscale.installed && tailscale.running && (tailscale.visibleHealth.length > 0 || tailscale.ackedCount > 0)
               width: parent.width
               spacing: Style.space(6)
 
@@ -495,16 +498,75 @@ Panel {
               }
 
               Repeater {
-                model: tailscale.health
-                Text {
+                model: tailscale.visibleHealth
+                Rectangle {
                   required property string modelData
                   width: parent.width
+                  height: warnLabel.implicitHeight + Style.space(6)
+                  radius: Style.space(3)
+                  color: warnMouse.containsMouse ? root.selectedFill : "transparent"
+                  Behavior on color { ColorAnimation { duration: 120 } }
+
+                  Text {
+                    id: warnLabel
+                    anchors.left: parent.left
+                    anchors.leftMargin: Style.space(6)
+                    anchors.right: ackGlyph.left
+                    anchors.rightMargin: Style.space(6)
+                    anchors.verticalCenter: parent.verticalCenter
+                    textFormat: Text.PlainText
+                    text: "⚠ " + modelData
+                    color: root.urgent
+                    font.family: root.fontFamily
+                    font.pixelSize: Style.font.bodySmall
+                    wrapMode: Text.WordWrap
+                  }
+
+                  Text {
+                    id: ackGlyph
+                    anchors.right: parent.right
+                    anchors.rightMargin: Style.space(6)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: "󰅂"
+                    color: warnMouse.containsMouse ? root.foreground : root.dim
+                    font.family: Style.font.iconFamily
+                    font.pixelSize: Style.font.body
+                    Behavior on color { ColorAnimation { duration: 120 } }
+                  }
+
+                  MouseArea {
+                    id: warnMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: tailscale.ackHealth(modelData)
+                  }
+                }
+              }
+
+              // Acked-warnings footer: click restores all acknowledged rows.
+              Item {
+                width: parent.width
+                height: ackedLabel.implicitHeight + Style.space(4)
+                visible: tailscale.ackedCount > 0
+
+                Text {
+                  id: ackedLabel
+                  anchors.centerIn: parent
                   textFormat: Text.PlainText
-                  text: "⚠ " + modelData
-                  color: root.urgent
+                  text: tailscale.ackedCount === 1
+                        ? tailscale.ackedCount + " warning acknowledged - click to restore"
+                        : tailscale.ackedCount + " warnings acknowledged - click to restore"
+                  color: root.dim
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.bodySmall
-                  wrapMode: Text.WordWrap
+                }
+
+                MouseArea {
+                  anchors.fill: parent
+                  hoverEnabled: true
+                  cursorShape: Qt.PointingHandCursor
+                  onClicked: tailscale.unackAll()
                 }
               }
             }

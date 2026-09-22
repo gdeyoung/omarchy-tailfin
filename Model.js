@@ -303,7 +303,7 @@ function parseAccounts(raw) {
 }
 
 // ------------------------------------------------------- fork additions --
-// Everything below is gdeyoung.tailscale on top of the stock omarchy.tailscale
+// Everything below is gdeyoung.tailfin on top of the stock omarchy.tailscale
 // Model. Stock functions above are kept verbatim so diffs against upstream
 // stay clean.
 

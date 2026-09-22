@@ -4,7 +4,7 @@ import Quickshell.Io
 import qs.Commons
 import "Model.js" as Model
 
-// gdeyoung.tailscale service — stock omarchy.tailscale Service with fork
+// gdeyoung.tailfin service — stock omarchy.tailscale Service with fork
 // additions (marked): preferences (accept-routes/-dns, shields-up,
 // allow-lan-access), exit-node suggest, health warnings, online counts.
 Item {
@@ -54,7 +54,14 @@ Item {
   property bool allowLanAccess: false    // exit-node-allow-lan-access
   property string suggestedExitNode: ""
   property bool suggesting: false
-  // end fork ---------------------------------------------------------------
+
+  // fork: acknowledged health warnings (persisted, per-warning) --------------
+  property var ackedHealth: []
+  readonly property var visibleHealth: health.filter(function(w) {
+    return ackedHealth.indexOf(w) < 0
+  })
+  readonly property int ackedCount: health.length - visibleHealth.length
+  // end fork -----------------------------------------------------------------
 
   readonly property int refreshIntervalSec: intSetting("refreshIntervalSec", 30, 5, 3600)
   readonly property bool busy: whichProcess.running || statusProcess.running || mullvadExitNodesProcess.running || accountsProcess.running || actionProcess.running || loginProcess.running || switchProcess.running || operatorProcess.running || exitNodeProcess.running || prefsProcess.running || suggestProcess.running || prefSetProcess.running
@@ -163,7 +170,7 @@ Item {
     if (!canSendFiles(peer)) return
     var target = peerAddress(peer)
     if (target === "") return
-    Quickshell.execDetached(["omarchy-tailscale-send", target])
+    Quickshell.execDetached(["omarchy-tailfin-send", target])
   }
 
   function refresh(forceAccounts) {
@@ -805,6 +812,77 @@ Item {
         root.actionStatus = ""
       }
       delayedRefresh.restart()
+    }
+  }
+  // end fork -----------------------------------------------------------------
+
+  // fork: acknowledged-health persistence ------------------------------------
+  // Stock Omarchy pattern (Style.qml): FileView watches the file, loads on
+  // change, writes go through Quickshell's file API. Watched both ways so an
+  // external rm shows warnings again instantly and acks survive restarts.
+  function ackHealth(warning) {
+    if (ackedHealth.indexOf(warning) < 0) {
+      ackedHealth = ackedHealth.concat([warning])
+      _saveAckedHealth()
+    }
+  }
+
+  function unackAll() {
+    if (ackedHealth.length > 0) {
+      ackedHealth = []
+      _saveAckedHealth()
+    }
+  }
+
+  function _saveAckedHealth() {
+    var s = JSON.stringify(ackedHealth)
+    try {
+      ackedFile.setText(s)
+    } catch (e) {
+      // Dir may not exist yet in the first seconds after install; the
+      // startup mkdir (ackDirProcess) will land shortly — retry once.
+      _ackWritePending = s
+      ackRetryTimer.restart()
+    }
+  }
+
+  property string _ackWritePending: ""
+  readonly property string ackStateDir: Quickshell.env("HOME") + "/.local/state/gdeyoung.tailfin"
+
+  // mkdir -p at startup: FileView.setText cannot create parent dirs.
+  Component.onCompleted: Quickshell.execDetached(["mkdir", "-p", ackStateDir])
+
+  Timer {
+    id: ackRetryTimer
+    interval: 800
+    repeat: false
+    onTriggered: {
+      if (root._ackWritePending !== "") {
+        try {
+          ackedFile.setText(root._ackWritePending)
+          root._ackWritePending = ""
+        } catch (e) { /* lost ack: warning simply re-appears */ }
+      }
+    }
+  }
+
+  FileView {
+    id: ackedFile
+    path: root.ackStateDir + "/acked-health.json"
+    watchChanges: true
+    printErrors: false
+
+    onLoaded: function() {
+      try {
+        var parsed = JSON.parse(ackedFile.text())
+        root.ackedHealth = Array.isArray(parsed) ? parsed : []
+      } catch (e) {
+        root.ackedHealth = []
+      }
+    }
+    onLoadFailed: function() {
+      // Absent/unreadable file = nothing acknowledged.
+      root.ackedHealth = []
     }
   }
   // end fork -----------------------------------------------------------------

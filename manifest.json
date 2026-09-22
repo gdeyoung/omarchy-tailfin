@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "id": "gdeyoung.tailscale",
-  "name": "Tailscale+",
-  "version": "0.1.0",
+  "id": "gdeyoung.tailfin",
+  "name": "Tailfin",
+  "version": "0.2.0",
   "author": "Greg DeYoung",
   "license": "MIT",
   "description": "Tailscale panel with tabbed layout: connection health, preference toggles, exit nodes with suggestions, Mullvad regions, and a searchable machine list. Forked from Omarchy's first-party omarchy.tailscale (MIT).",
@@ -13,7 +13,7 @@
     "barWidget": "Panel.qml"
   },
   "barWidget": {
-    "displayName": "Tailscale+",
+    "displayName": "Tailfin",
     "description": "Tabbed Tailscale panel: connection state, health warnings, preference toggles, exit nodes (with suggestions), Mullvad regions, searchable machines, Taildrop, and account switching.",
     "category": "Network",
     "allowMultiple": false,
@@ -41,6 +41,6 @@
       }
     ]
   },
-  "repository": "https://github.com/gdeyoung/omarchy-tailscale",
-  "homepage": "https://github.com/gdeyoung/omarchy-tailscale"
+  "repository": "https://github.com/gdeyoung/omarchy-tailfin",
+  "homepage": "https://github.com/gdeyoung/omarchy-tailfin"
 }

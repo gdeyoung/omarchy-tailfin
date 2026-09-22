@@ -1,4 +1,4 @@
-// Model tests for gdeyoung.tailscale.
+// Model tests for gdeyoung.tailfin.
 // Fixtures are VERBATIM outputs captured from this tailnet (tailscale 1.102.3)
 // unless a comment says otherwise. Run: node --test tests/model.test.js
 const test = require("node:test")
