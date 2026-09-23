@@ -218,7 +218,17 @@ Item {
     var host = String(peer.HostName || "")
     var dns = String(peer.DNSName || host)
     if (!validTailnetHost(host) || !validTailnetHost(dns)) return
-    Quickshell.execDetached(["foot", "-T", "ssh " + host, "-e", "sh", "-lc", "exec tailscale ssh " + shellQuote(host) + " 2>/dev/null || exec ssh " + shellQuote(dns)])
+    // fork: `exec a || b` never runs b (exec replaces the shell), so the old
+    // one-liner always died inside `tailscale ssh` — which fails instantly for
+    // peers that don't advertise Tailscale SSH (SSH_HostKeys). Try tailscale
+    // ssh only when advertised; plain ssh over MagicDNS otherwise with
+    // accept-new (tailnet hostnames are identity-verified by the control
+    // plane). Keep foot open after exit so errors are readable instead of a
+    // flash-closed window.
+    var cmd = (peer.SSH_HostKeys ? "tailscale ssh " + shellQuote(host) + " 2>/dev/null || " : "")
+      + "ssh -o StrictHostKeyChecking=accept-new " + shellQuote(dns)
+      + "; st=$?; printf '\\n[ssh exited: %s — press Enter to close]\\n' \"$st\"; read -r _"
+    Quickshell.execDetached(["foot", "-T", "ssh " + host, "-e", "sh", "-lc", cmd])
   }
 
   // Taildrop receive toggle (stock omarchy-tailscale-receive.service)
