@@ -90,18 +90,16 @@ Item {
 
   readonly property bool busy: whichProcess.running || statusProcess.running || mullvadExitNodesProcess.running || accountsProcess.running || actionProcess.running || loginProcess.running || switchProcess.running || operatorProcess.running || exitNodeProcess.running || prefsProcess.running || suggestProcess.running || prefSetProcess.running
   readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME")
-  // fork: resolved absolute path of the tailscale CLI. Privileged invocations
-  // (the pkexec operator authorize) use this instead of a bare name so a
-  // substituted PATH entry can never cross the privilege boundary. Resolved
-  // from the same `which tailscale` probe that gates `installed`, and strictly
-  // validated (absolute path, no spaces/metacharacters) because it is later
-  // embedded in a root-context command string.
-  property string tailscalePath: "/usr/bin/tailscale"
-  onTailscalePathResolvedChanged: {
-    var p = String(tailscalePathResolved || "")
-    if (/^\/[A-Za-z0-9_\/.-]+$/.test(p)) tailscalePath = p
+  // fork: the real account name, resolved from the actual UID via an absolute
+  // /usr/bin/id invocation in the user session (never from env vars, which can
+  // be spoofed) and strictly validated before it crosses the pkexec boundary
+  // as a direct argv element.
+  property string operatorUser: ""
+  onOperatorUserRawChanged: {
+    var u = String(operatorUserRaw || "")
+    if (/^[a-z_][a-z0-9_-]{0,31}$/.test(u)) operatorUser = u
   }
-  property string tailscalePathResolved: ""
+  property string operatorUserRaw: ""
 
   property string _statusOutput: ""
   property string _statusError: ""
@@ -492,14 +490,23 @@ Item {
   readonly property bool allowLanRelevant: currentExitNodeName() !== ""
 
   function authorizeTailscaleOperator() {
-    if (!installed || operatorProcess.running || userName === "") return
+    if (!installed || operatorProcess.running) return
+    if (operatorUser === "") {
+      // Resolve the real UID's name in the user session before doing anything
+      // privileged; the authorize button re-fires on the next panel open.
+      if (!userIdProcess.running) {
+        userIdProcess.command = ["/usr/bin/id", "-un"]
+        userIdProcess.running = true
+      }
+      return
+    }
     _operatorOutput = ""
     _operatorError = ""
     actionStatus = "Authorizing Tailscale operator..."
-    // Absolute paths + no inherited environment for the privilege boundary.
-    // `id -un` reads the real current UID's name at exec time instead of
-    // trusting an inherited USER/LOGNAME value.
-    operatorProcess.command = ["/usr/bin/pkexec", "/usr/bin/sh", "-c", tailscalePath + " set --operator=$(id -un)"]
+    // Privilege boundary: fixed root-owned executable paths, no shell, and the
+    // operator account was resolved + validated in the user session and is
+    // passed as a direct argv element.
+    operatorProcess.command = ["/usr/bin/pkexec", "/usr/bin/tailscale", "set", "--operator=" + operatorUser]
     operatorProcess.running = true
   }
 
@@ -607,7 +614,6 @@ Item {
     id: whichProcess
     running: false
     command: []
-    stdout: StdioCollector { id: whichStdout; waitForEnd: true; onStreamFinished: root.tailscalePathResolved = text.trim() }
     onExited: function(exitCode) {
       root.installed = exitCode === 0
       if (root.installed) root.refreshStatusAndAccounts()
@@ -758,6 +764,19 @@ Item {
       }
       root.settingExitNodeId = ""
       delayedRefresh.restart()
+    }
+  }
+
+  Process {
+    id: userIdProcess
+    running: false
+    command: []
+    stdout: StdioCollector { id: userIdStdout; waitForEnd: true; onStreamFinished: root.operatorUserRaw = text.trim() }
+    onExited: function(exitCode) {
+      if (exitCode !== 0) {
+        root.lastError = "Could not resolve the current account name"
+        root.actionStatus = root.lastError
+      }
     }
   }
 
