@@ -875,72 +875,121 @@ Panel {
               horizontalAlignment: Text.AlignHCenter
             }
 
-            Column {
-              id: peerColumn
+            // fork: machines scroll in their OWN viewport. The scrollbar owns a
+            // dedicated 18u gutter lane on the right that rows physically
+            // cannot enter (rows are 18u narrower than the viewport), so it can
+            // never cover the action buttons — resting, hovered, or dragged.
+            // The old layout shared one lane: the panel-wide overlay scrollbar
+            // parked on top of the rows and ate the third button on hover.
+            Item {
+              id: machList
               width: parent.width
-              spacing: Style.space(6)
+              readonly property real maxViewport: Math.max(
+                Style.space(240),
+                Math.min(Style.space(480),
+                         panel.availableCardHeight - Style.space(170)))
+              implicitHeight: Math.min(innerColumn.implicitHeight, maxViewport)
+              height: implicitHeight
 
-              Repeater {
-                model: root.filteredOnline
-                PeerRow {
-                  required property var modelData
-                  required property int index
-                  width: peerColumn.width
-                  peer: modelData
-                  rowIndex: index
-                }
-              }
-            }
-
-            CursorSurface {
-              visible: root.filteredOffline.length > 0
-              width: parent.width
-              implicitHeight: offRow.implicitHeight + Style.space(4)
-              foreground: root.foreground
-
-              Row {
-                id: offRow
-                anchors.left: parent.left
-                anchors.leftMargin: Style.space(6)
-                spacing: Style.space(8)
-
-                Text {
-                  text: root.offlineOpen ? "󰅀" : "󰅂"
-                  color: root.dim
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.body
-                }
-
-                Text {
-                  text: root.filteredOffline.length + " offline — hidden"
-                  color: root.dim
-                  font.family: root.fontFamily
-                  font.pixelSize: Style.font.body
-                }
-              }
-
-              MouseArea {
+              Flickable {
+                id: machFlick
                 anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: root.offlineOpen = !root.offlineOpen
+                anchors.rightMargin: Style.space(18)
+                clip: true
+                contentWidth: width
+                contentHeight: innerColumn.implicitHeight
+
+                Column {
+                  id: innerColumn
+                  width: machFlick.width
+                  spacing: Style.space(6)
+
+                  Repeater {
+                    model: root.filteredOnline
+                    PeerRow {
+                      required property var modelData
+                      required property int index
+                      width: innerColumn.width
+                      peer: modelData
+                      rowIndex: index
+                    }
+                  }
+
+                  CursorSurface {
+                    visible: root.filteredOffline.length > 0
+                    width: innerColumn.width
+                    implicitHeight: offRow.implicitHeight + Style.space(4)
+                    foreground: root.foreground
+
+                    Row {
+                      id: offRow
+                      anchors.left: parent.left
+                      anchors.leftMargin: Style.space(6)
+                      spacing: Style.space(8)
+
+                      Text {
+                        text: root.offlineOpen ? "󰅀" : "󰅂"
+                        color: root.dim
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.body
+                      }
+
+                      Text {
+                        text: root.filteredOffline.length + " offline — hidden"
+                        color: root.dim
+                        font.family: root.fontFamily
+                        font.pixelSize: Style.font.body
+                      }
+                    }
+
+                    MouseArea {
+                      anchors.fill: parent
+                      hoverEnabled: true
+                      cursorShape: Qt.PointingHandCursor
+                      onClicked: root.offlineOpen = !root.offlineOpen
+                    }
+                  }
+
+                  Column {
+                    id: offlineColumn
+                    visible: root.offlineOpen
+                    width: innerColumn.width
+                    spacing: Style.space(6)
+
+                    Repeater {
+                      model: root.offlineOpen ? root.filteredOffline : 0
+                      PeerRow {
+                        required property var modelData
+                        required property int index
+                        width: offlineColumn.width
+                        peer: modelData
+                        rowIndex: root.filteredOnline.length + index
+                      }
+                    }
+                  }
+                }
               }
-            }
 
-            Column {
-              id: offlineColumn
-              visible: root.offlineOpen
-              width: parent.width
-              spacing: Style.space(6)
-
-              Repeater {
-                model: root.offlineOpen ? root.filteredOffline : 0
-                PeerRow {
-                  required property var modelData
-                  required property int index
-                  width: offlineColumn.width
-                  peer: modelData
-                  rowIndex: root.filteredOnline.length + index
+              // Standalone scrollbar, NOT attached to the Flickable: anchored
+              // in its own gutter so it overlays nothing. Rows end 18u left.
+              ScrollBar {
+                id: machScroll
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
+                width: Style.space(8)
+                visible: machFlick.contentHeight > machFlick.height
+                size: machFlick.visibleArea.heightRatio
+                position: machFlick.visibleArea.yPosition
+                interactive: true
+                onPositionChanged: {
+                  if (pressed)
+                    machFlick.contentY = position * (machFlick.contentHeight - machFlick.height)
+                }
+                contentItem: Rectangle {
+                  radius: width / 2
+                  color: machScroll.pressed ? root.selectedFill
+                       : (machScroll.hovered ? root.hoverFill : root.dim)
                 }
               }
             }
@@ -1284,7 +1333,7 @@ Panel {
       // tab. Reserving the scrollbar lane stops hover/click from landing on
       // the scrollbar instead of the (previously covered) copy button.
       anchors.leftMargin: Style.space(10)
-      anchors.rightMargin: Style.space(34)
+      anchors.rightMargin: Style.space(8)
       spacing: Style.space(8)
 
       Text {
