@@ -1272,8 +1272,12 @@ Panel {
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
+      // fork: keep the action buttons clear of the interactive vertical
+      // scrollbar, which overlays the Flickable's right edge on the Machines
+      // tab. Reserving the scrollbar lane stops hover/click from landing on
+      // the scrollbar instead of the (previously covered) copy button.
       anchors.leftMargin: Style.space(10)
-      anchors.rightMargin: Style.space(8)
+      anchors.rightMargin: Style.space(18)
       spacing: Style.space(8)
 
       Text {
