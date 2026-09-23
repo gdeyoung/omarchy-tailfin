@@ -90,6 +90,18 @@ Item {
 
   readonly property bool busy: whichProcess.running || statusProcess.running || mullvadExitNodesProcess.running || accountsProcess.running || actionProcess.running || loginProcess.running || switchProcess.running || operatorProcess.running || exitNodeProcess.running || prefsProcess.running || suggestProcess.running || prefSetProcess.running
   readonly property string userName: Quickshell.env("USER") || Quickshell.env("LOGNAME")
+  // fork: resolved absolute path of the tailscale CLI. Privileged invocations
+  // (the pkexec operator authorize) use this instead of a bare name so a
+  // substituted PATH entry can never cross the privilege boundary. Resolved
+  // from the same `which tailscale` probe that gates `installed`, and strictly
+  // validated (absolute path, no spaces/metacharacters) because it is later
+  // embedded in a root-context command string.
+  property string tailscalePath: "/usr/bin/tailscale"
+  onTailscalePathResolvedChanged: {
+    var p = String(tailscalePathResolved || "")
+    if (/^\/[A-Za-z0-9_\/.-]+$/.test(p)) tailscalePath = p
+  }
+  property string tailscalePathResolved: ""
 
   property string _statusOutput: ""
   property string _statusError: ""
@@ -484,7 +496,10 @@ Item {
     _operatorOutput = ""
     _operatorError = ""
     actionStatus = "Authorizing Tailscale operator..."
-    operatorProcess.command = ["pkexec", "tailscale", "set", "--operator=" + userName]
+    // Absolute paths + no inherited environment for the privilege boundary.
+    // `id -un` reads the real current UID's name at exec time instead of
+    // trusting an inherited USER/LOGNAME value.
+    operatorProcess.command = ["/usr/bin/pkexec", "/usr/bin/sh", "-c", tailscalePath + " set --operator=$(id -un)"]
     operatorProcess.running = true
   }
 
@@ -592,6 +607,7 @@ Item {
     id: whichProcess
     running: false
     command: []
+    stdout: StdioCollector { id: whichStdout; waitForEnd: true; onStreamFinished: root.tailscalePathResolved = text.trim() }
     onExited: function(exitCode) {
       root.installed = exitCode === 0
       if (root.installed) root.refreshStatusAndAccounts()
