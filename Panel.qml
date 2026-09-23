@@ -293,10 +293,10 @@ Panel {
     bar: root.bar
     open: root.opened
     focusTarget: keyCatcher
-    // fork: wider than stock (400) so the Machines tab keeps the full
-    // name+traffic column clear of the action buttons, with the buttons
-    // themselves clear of the (now passive) scrollbar indicator lane.
-    contentWidth: panel.fittedContentWidth(Style.space(500))
+    // fork: wider than stock (400) — Machines rows carry three action buttons
+    // (~88u) beside the name/traffic column; 560 gives the button column real
+    // clearance from the scrollbar lane instead of overflowing into it.
+    contentWidth: panel.fittedContentWidth(Style.space(560))
     contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(600))
 
     PanelKeyCatcher {
@@ -1288,6 +1288,7 @@ Panel {
       spacing: Style.space(8)
 
       Text {
+        id: osGlyph
         textFormat: Text.PlainText
         text: tailscale.osIcon(peer ? peer.OS : "")
         color: online ? root.foreground : root.dim
@@ -1298,7 +1299,13 @@ Panel {
 
       Column {
         id: peerContent
-        width: parent.width - Style.space(90)
+        // fork: flex, not fixed — the old `parent.width - 90` was larger than
+        // the space left by the three action buttons, so the Row overflowed
+        // its right edge and pushed the copy button under the scrollbar.
+        width: parent.width - osGlyph.width - parent.spacing - (
+                 (sendButton.visible ? sendButton.width + parent.spacing : 0) +
+                 (sshButton.visible ? sshButton.width + parent.spacing : 0) +
+                 (copyButton.visible ? copyButton.width + parent.spacing : 0))
         spacing: Style.space(1)
 
         Text {
