@@ -294,8 +294,9 @@ Panel {
     open: root.opened
     focusTarget: keyCatcher
     // fork: wider than stock (400) so the Machines tab keeps the full
-    // name+traffic column clear of the send/SSH/copy action buttons.
-    contentWidth: panel.fittedContentWidth(Style.space(460))
+    // name+traffic column clear of the action buttons, with the buttons
+    // themselves clear of the (now passive) scrollbar indicator lane.
+    contentWidth: panel.fittedContentWidth(Style.space(500))
     contentHeight: panel.fittedContentHeight(column.implicitHeight, Style.space(600))
 
     PanelKeyCatcher {
@@ -331,7 +332,13 @@ Panel {
         boundsBehavior: Flickable.StopAtBounds
         flickableDirection: Flickable.VerticalFlick
         interactive: contentHeight > height
-        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+        // fork: passive scrollbar — it only reports scroll position. Making it
+        // non-interactive removes the hover surface that used to steal the
+        // pointer from the copy button under it; wheel/keys/touch still scroll.
+        ScrollBar.vertical: ScrollBar {
+          policy: ScrollBar.AsNeeded
+          interactive: false
+        }
 
         Column {
           id: column
@@ -1277,7 +1284,7 @@ Panel {
       // tab. Reserving the scrollbar lane stops hover/click from landing on
       // the scrollbar instead of the (previously covered) copy button.
       anchors.leftMargin: Style.space(10)
-      anchors.rightMargin: Style.space(18)
+      anchors.rightMargin: Style.space(34)
       spacing: Style.space(8)
 
       Text {
