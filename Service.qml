@@ -644,8 +644,18 @@ Item {
       root.refreshing = false
       var stdout = String(statusStdout.text || root._statusOutput || "")
       var stderr = String(statusStderr.text || root._statusError || "")
+      // A clean exit with no output means onExited ran before the collector
+      // delivered stdout, not that tailscaled is down. Flipping to
+      // "Disconnected" here made the bar flicker; keep the last state and
+      // re-poll instead.
+      if (exitCode === 0 && stdout.trim() === "") {
+        console.warn("tailscale", "empty status output; keeping last state")
+        delayedRefresh.restart()
+        return
+      }
       if (exitCode === 0) root.parseStatus(stdout)
       else {
+        console.warn("tailscale", "status exited " + exitCode + ": " + stderr.trim())
         root.resetUnavailable("Disconnected")
         root.lastError = stderr.trim()
       }
